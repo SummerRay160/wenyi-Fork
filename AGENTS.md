@@ -149,6 +149,22 @@ git diff --check
 - 设计讨论、修复过程、测试运行记录放在 PR、提交或发行说明中。实现后将仍有效的决策并入对应开发文档，删除完成或过时的设计稿，不另设 `design/`、`archive/` 保存语义重复的说明。
 - 移动或删除文档时更新站点导航、README、贡献指南、源码注释、技能和包元数据中的引用。检查相对路径、锚点和双语对应；运行 `pnpm docs:build` 与 `git diff --check`，涉及导航时验证本地页面、搜索和语言切换。预览方法见[开发文档入口](docs/development/index.md#documentation-preview)。
 
+## Fork 专属 Windows 携带版
+
+本 fork 在上游安装包之外发布 Windows x64 携带版。它只由
+`.github/workflows/desktop-portable.yml` 构建，不提供本地便携构建入口。上游同步时必须
+保留：
+
+- `portable.marker` 识别与 `<exe>/data` 默认数据根；
+- `apps/desktop/src/paths.rs` 中唯一放行该路径的布局例外；
+- 仅手动更新、`org.wenyi.desktop.portable` 身份与携带版安装拒绝；
+- `PortableVault`、DPAPI 自动解锁和 `CredentialStore` 的 `portable` 存储标签；
+- `scripts/release/package_portable.py`、携带版工作流及其测试；
+- `docs/development/portable-edition.md` 与中文版。
+
+修改路径、更新、凭据、打包或发布工作流前，先读
+[携带版开发契约](docs/development/portable-edition.md)。
+
 ## Git 与交付
 
 - `main` 是唯一长期集成主干；新工作从最新 `origin/main` 开短期分支，PR 直接合入 `main`，不再经 `dev` 或 `webui` 中转。保持主干可构建、可测试、可发布；发布与旧分支迁移规则见 [CONTRIBUTING.md](CONTRIBUTING.md#main-based-development)。

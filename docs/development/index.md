@@ -13,6 +13,7 @@ a book, use the user guides rather than the source-development setup.
 | Run or change the native app and local engine | [Desktop development](desktop.md) |
 | Change shared UI, routes, loading or interaction conventions | [Frontend conventions](frontend.md) |
 | Build and release Desktop installers and updates | [Desktop releases](releasing.md) |
+| Build or validate the Windows portable edition | [Portable edition](portable-edition.md) |
 | Publish CLI and Core to PyPI | [Python package publishing](publishing.md) |
 
 Start source work with the [contribution guide](../../CONTRIBUTING.md), which owns

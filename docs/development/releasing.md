@@ -92,6 +92,13 @@ Windows uses NSIS, not MSI, to preserve prerelease/development identity. Install
 are uploaded directly without outer ZIP wrappers. GitHub's workflow artifact
 download may add its own wrapper; that is not the Release asset format.
 
+The fork-only Windows portable edition is a separate asset,
+`wenyi-desktop-<version>-windows-x64-portable.zip`, built by the
+[portable workflow](portable-edition.md). A ZIP is the natural format for an unpacked
+edition: it is not an installer, is not part of `latest.json`, and has its own
+`wenyi-desktop-portable-SHA256SUMS.txt`. It does not change the installer or updater
+sets described here.
+
 [Installer collection](../../scripts/release/package_release.py#L1) requires the
 exact version, architecture and complete platform format set. Old output is not
 renamed as a new version. Desktop checksums are `wenyi-desktop-SHA256SUMS.txt`;

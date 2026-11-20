@@ -23,6 +23,34 @@ On Windows, run setup as your normal user, not **Run as administrator**. If setu
 
 After installation, set up [API keys](#api-keys), then follow the shared [workspace guide](workspace.md) to create, translate, proofread, and export a book. Building from source belongs in the [Desktop development guide](../development/desktop.md).
 
+## Windows portable edition
+
+This fork also publishes a Windows x64 portable ZIP. It is not an installer: extract
+`wenyi-desktop-<version>-windows-x64-portable.zip` to a writable folder on a local
+disk and open `wenyi-desktop.exe`. Keep `wenyi-desktop.exe`, `portable.marker` and the
+`sidecar/` folder together. Windows may show a SmartScreen warning for this unsigned
+build; verify where you downloaded it before continuing. Microsoft Edge WebView2
+Runtime is required and is not bundled.
+
+The portable edition stores everything beside the program: the catalog, settings,
+projects, plugins, logs, WebView data and backups live in `data/` in the extracted
+folder. It does not read or write `%LOCALAPPDATA%\Wenyi\Desktop`. To back up, quit
+Wenyi completely (including the tray) and copy the whole folder. To update, download
+the new portable ZIP, quit Wenyi, replace the program files and keep `data/`. Deleting
+the folder also deletes the data. **Settings → About** can check releases, but this
+edition never installs updates in place.
+
+Saved API keys are encrypted in `data/credentials.vault` and travel with the folder.
+Set a passphrase under **Settings → General → Portable credentials**. Windows can
+unlock the vault automatically for the same user on the same computer; after moving
+the folder to another computer or Windows user, enter the passphrase once. Losing the
+passphrase makes the saved keys unrecoverable. The vault belongs to that folder, not to
+other Wenyi installations.
+
+The portable edition starts with an empty catalog. It does not migrate the installed
+edition automatically; use **Import existing project** for old projects and re-enter
+settings and keys. The installed and portable editions can run together.
+
 ## API keys
 
 ### Model connections

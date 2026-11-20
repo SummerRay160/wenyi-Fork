@@ -23,6 +23,27 @@ Windows 安装器应以普通用户运行，不要选择**以管理员身份运�
 
 安装后先配置 [API 密钥](#api-密钥)，再按共享[工作台指南](workspace.md)创建、翻译、校阅和导出书籍。源码运行与构建见 [Desktop 开发指南](../development/desktop.md)。
 
+## Windows 携带版
+
+本 fork 另外发布 Windows x64 携带版 ZIP。它不是安装器：把
+`wenyi-desktop-<version>-windows-x64-portable.zip` 解压到本地磁盘上可写的文件夹，
+运行 `wenyi-desktop.exe`。请保持 `wenyi-desktop.exe`、`portable.marker` 和 `sidecar/`
+文件夹在一起。未签名构建可能触发 SmartScreen 提醒，继续前请确认下载来源可信。
+需要 Microsoft Edge WebView2 Runtime，携带包不附带运行库。
+
+携带版把目录库、设置、项目、插件、日志、WebView 数据和备份都保存在解压文件夹的
+`data/` 中，不读写 `%LOCALAPPDATA%\Wenyi\Desktop`。备份时请从托盘完全退出文译，
+复制整个文件夹；更新时下载新的携带版 ZIP，退出文译，替换程序文件并保留 `data/`。
+删除文件夹会同时删除数据。**设置 → 关于**可以检查发行版，但不会原地安装更新。
+
+已保存的 API 密钥加密在 `data/credentials.vault` 中并随文件夹移动。请在
+**设置 → 通用 → 携带版凭据**中设置口令。同一台电脑的同一 Windows 用户可由系统自动
+解锁；移动文件夹到另一台电脑或另一个 Windows 用户后，需要输入一次口令。口令丢失后
+已保存的密钥无法恢复。凭据库属于该文件夹，不与其他文译安装共享。
+
+携带版首次启动使用空目录库，不会自动迁移安装版数据；旧项目请使用**导入现有项目**，
+设置和密钥需要重新录入。安装版与携带版可以同时运行。
+
 ## API 密钥
 
 ### 模型连接

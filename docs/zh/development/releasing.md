@@ -83,6 +83,12 @@ Desktop 发行附件命名为 `wenyi-desktop-<version>-<platform>-<arch>.<extens
 Windows 使用 NSIS 而非 MSI，以保留预发行/开发身份。安装包直接上传，不套外层 ZIP。
 GitHub workflow artifact 下载可能自带包装，但那不是 Release 附件格式。
 
+fork 专属的 Windows 携带版是独立资产
+`wenyi-desktop-<version>-windows-x64-portable.zip`，由
+[携带版工作流](portable-edition.md)构建。ZIP 是解压即用版本的自然格式：它不是安装器，
+不进入 `latest.json`，并拥有独立的 `wenyi-desktop-portable-SHA256SUMS.txt`。它不改变
+本文描述的安装包或更新产物集合。
+
 [安装包收集器](../../../scripts/release/package_release.py#L1)要求准确的版本、架构及
 完整平台格式集合，不将旧产物改名为新版。Desktop 校验和为
 `wenyi-desktop-SHA256SUMS.txt`；CLI 单独提供

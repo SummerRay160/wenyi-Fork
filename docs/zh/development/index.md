@@ -12,6 +12,7 @@
 | 启动或修改原生应用与本地引擎 | [Desktop 开发](desktop.md) |
 | 修改共享 UI、路由、加载和交互约定 | [前端规范](frontend.md) |
 | 构建与发布桌面安装包及更新 | [桌面发布](releasing.md) |
+| 构建或验证 Windows 携带版 | [携带版](portable-edition.md) |
 | 将 CLI 和 Core 发布到 PyPI | [Python 包发布](publishing.md) |
 
 从源码开发请先阅读[贡献指南](../CONTRIBUTING.md)，其中维护分支与审查规则、
