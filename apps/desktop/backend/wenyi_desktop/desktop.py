@@ -164,6 +164,7 @@ async def serve(
     lifecycle: EngineDiagnostics,
     *,
     install_root: Path | None = None,
+    portable: bool = False,
 ) -> None:
     with lifecycle.observe("application"):
         import uvicorn
@@ -176,6 +177,7 @@ async def serve(
             diagnostics=lifecycle.reporter,
             engine_diagnostics=lifecycle,
             install_root=install_root,
+            portable=portable,
         )
     try:
         # asyncio recognizes TCP sockets by their protocol before enabling
@@ -229,6 +231,7 @@ def main() -> None:
     # the installation directory from its own executable: when it runs as a
     # sidecar that path is the bundled runtime, not the application.
     parser.add_argument("--install-root", type=Path, default=None)
+    parser.add_argument("--portable", action="store_true")
     args = parser.parse_args()
     if not os.environ.get("WENYI_API_TOKEN"):
         parser.error("WENYI_API_TOKEN must be supplied by the desktop parent")
@@ -255,6 +258,7 @@ def main() -> None:
                         protocol_stream,
                         lifecycle,
                         install_root=args.install_root,
+                        portable=args.portable,
                     )
                 )
             # ASGI can consume shutdown failures too. Do not report failure and

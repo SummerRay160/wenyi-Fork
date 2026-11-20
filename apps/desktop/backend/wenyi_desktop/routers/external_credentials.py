@@ -18,7 +18,7 @@ router = APIRouter(
 
 class MinerUCredentialStatus(BaseModel):
     mode: Literal["environment", "manual"]
-    storage: Literal["system", "session"] | None
+    storage: Literal["system", "session", "portable"] | None
     available: bool
     environment: str
     system_storage_available: bool

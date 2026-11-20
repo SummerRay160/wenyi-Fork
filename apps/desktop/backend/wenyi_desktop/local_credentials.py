@@ -101,6 +101,19 @@ class CredentialStore:
             self._vault_factory = None
         return self._vault
 
+    @property
+    def portable(self) -> bool:
+        """Whether this store owns the file-backed portable vault.
+
+        Reads the already-resolved vault only: a non-portable build must not
+        instantiate the lazy OS keyring just to answer an API request.
+        """
+        return getattr(self._vault, "storage", None) == "portable"
+
+    def _vault_available(self) -> bool:
+        vault = self.vault
+        return vault is not None and getattr(vault, "unlocked", True)
+
     @contextmanager
     def _connection(self, connection=None):
         if connection is not None:
@@ -193,7 +206,7 @@ class CredentialStore:
 
     def mineru_status(self) -> dict:
         """Report locally usable credentials without revealing secrets or vault errors."""
-        system_available = self.vault is not None
+        system_available = self._vault_available()
         record, secret = self._mineru_snapshot()
         available = secret is not None
         if available:
@@ -275,7 +288,8 @@ class CredentialStore:
                 raise ValueError("A manual credential cannot be blank; use Clear instead")
             validate_credential(secret)
             reference = uuid4().hex
-            change.record = {"mode": mode, "reference": reference, "storage": "system"}
+            label = getattr(self.vault, "storage", "system")
+            change.record = {"mode": mode, "reference": reference, "storage": label}
             change.created = True
             if storage != "session":
                 try:
@@ -332,7 +346,7 @@ class CredentialStore:
             return
         with self._lock:
             self._session.pop(reference, None)
-        if record.get("storage") == "system" and self.vault is not None:
+        if record.get("storage") in {"system", "portable"} and self.vault is not None:
             try:
                 self.vault.delete_password(SERVICE, reference)
             except Exception:
@@ -373,7 +387,7 @@ class CredentialStore:
             "storage": record.get("storage") if mode == "manual" else None,
             "available": bool(self._resolve(record, provider)) if available is None else available,
             "environment": provider.api_key_env or adapter.default_api_key_env,
-            "system_storage_available": self.vault is not None,
+            "system_storage_available": self._vault_available(),
             "requires_key": adapter.requires_api_key,
         }
 

@@ -44,7 +44,7 @@ class CredentialInput(BaseModel):
 
 class CredentialStatus(BaseModel):
     mode: Literal["environment", "manual"]
-    storage: Literal["system", "session"] | None
+    storage: Literal["system", "session", "portable"] | None
     available: bool
     environment: str | None
     system_storage_available: bool

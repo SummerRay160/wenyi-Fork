@@ -26,6 +26,7 @@ from .local_runtime import (
     run_workflow_sync,
     statistics_snapshot,
 )
+from .portable_credentials import PortableVault
 from .settings import DesktopSettings
 from .updates import UpdateAdmissionMiddleware, UpdateGuard
 from .updates import router as updates_router
@@ -118,6 +119,7 @@ def create_context(
     credentials: CredentialStore | None = None,
     library_root: str | Path | None = None,
     install_root: str | Path | None = None,
+    portable: bool = False,
 ) -> BackendContext:
     backend = LocalBackend(
         workspace,
@@ -125,7 +127,11 @@ def create_context(
         library_root=library_root,
         install_root=install_root,
     )
-    credentials = credentials or CredentialStore(backend.workspace, vault_factory=system_keyring)
+    if credentials is None:
+        if portable:
+            credentials = CredentialStore(backend.workspace, vault=PortableVault(backend.workspace))
+        else:
+            credentials = CredentialStore(backend.workspace, vault_factory=system_keyring)
     if credentials.database != backend.database:
         raise ValueError("Desktop credentials must belong to the selected data root")
     services = DesktopServices(backend)
@@ -162,6 +168,7 @@ def create_app(
     library_root: str | Path | None = None,
     install_root: str | Path | None = None,
     engine_diagnostics: EngineDiagnostics | None = None,
+    portable: bool = False,
 ):
     from .desktop import ORIGINS
     from .routers import (
@@ -170,6 +177,7 @@ def create_app(
         desktop_export,
         external_credentials,
         library_location,
+        portable_credentials,
         project_import,
     )
 
@@ -184,6 +192,7 @@ def create_app(
             api_token=api_token,
             library_root=library_root,
             install_root=install_root,
+            portable=portable,
         )
     services = context.telemetry
     lifecycle = engine_diagnostics or EngineDiagnostics(diagnostics)
@@ -232,6 +241,7 @@ def create_app(
     app.include_router(babeldoc_plugin.router)
     app.include_router(project_import.router)
     app.include_router(library_location.router)
+    app.include_router(portable_credentials.router)
     app.state.babeldoc_plugin = services.babeldoc
     app.state.update_guard = UpdateGuard(services)
     app.add_middleware(

@@ -2589,6 +2589,7 @@ requires-dist = [
 name = "wenyi-desktop"
 source = { editable = "apps/desktop/backend" }
 dependencies = [
+    { name = "cryptography" },
     { name = "keyring" },
     { name = "uvicorn", extra = ["standard"] },
     { name = "wenyi-backend" },
@@ -2596,6 +2597,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cryptography", specifier = ">=42" },
     { name = "keyring", specifier = ">=25" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
     { name = "wenyi-backend", editable = "packages/backend" },

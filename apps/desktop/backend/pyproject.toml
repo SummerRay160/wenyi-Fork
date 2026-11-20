@@ -9,6 +9,7 @@ dependencies = [
     "wenyi-backend",
     "uvicorn[standard]>=0.30",
     "keyring>=25",
+    "cryptography>=42",
 ]
 
 [tool.uv.sources]
