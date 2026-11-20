@@ -1,6 +1,8 @@
 //! The native half of the unified Desktop data-root contract.
 use std::path::{Component, Path, PathBuf};
 
+use crate::portable;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Error {
     Base,
@@ -21,6 +23,7 @@ impl Error {
 pub fn workspace(explicit: Option<PathBuf>) -> Result<PathBuf, Error> {
     let root = match explicit {
         Some(root) => std::path::absolute(root).map_err(|_| Error::Base)?,
+        None if portable::enabled() => portable::data_root(&running_install_dir()?),
         None => default_workspace()?,
     };
     if root.parent().is_none() || home_dir().is_ok_and(|home| same_directory(&home, &root)) {
@@ -134,6 +137,17 @@ pub fn check_layout(install: &Path, root: &Path) -> LayoutCheck {
     }
 }
 
+/// Installed builds still refuse every install/data overlap. The portable
+/// variant may use one fixed child because its data, logs, locks and projects
+/// intentionally travel with the program folder.
+pub fn check_layout_for(install: &Path, root: &Path, allow_portable: bool) -> LayoutCheck {
+    if allow_portable && same_directory(root, &portable::data_root(install)) {
+        LayoutCheck::Consistent
+    } else {
+        check_layout(install, root)
+    }
+}
+
 impl LayoutCheck {
     pub fn message(self) -> Option<&'static str> {
         match self {
@@ -238,6 +252,27 @@ mod tests {
         assert_eq!(
             check_layout(install, Path::new("/chosen/program2")),
             LayoutCheck::Consistent
+        );
+    }
+
+    #[test]
+    fn portable_layout_allows_only_the_data_child() {
+        let install = Path::new("/chosen/program");
+        assert_eq!(
+            check_layout_for(install, &install.join("data"), true),
+            LayoutCheck::Consistent
+        );
+        assert_eq!(
+            check_layout_for(install, &install.join("data"), false),
+            LayoutCheck::Overlap
+        );
+        assert_eq!(
+            check_layout_for(install, &install.join("cache"), true),
+            LayoutCheck::Overlap
+        );
+        assert_eq!(
+            check_layout_for(install, install, true),
+            LayoutCheck::Overlap
         );
     }
 

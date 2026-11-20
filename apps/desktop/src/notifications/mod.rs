@@ -34,6 +34,21 @@ use crate::diagnostics::{Diagnostics, Event, Source};
 
 /// Stable application identity, independent of the platform's registration scheme.
 pub const APP_ID: &str = "org.wenyi.desktop";
+
+/// The Toast/taskbar identity for this build. The portable variant must not
+/// overwrite the installed app's HKCU registration when both run.
+pub fn app_id_for(portable: bool) -> &'static str {
+    if portable {
+        crate::portable::APP_ID
+    } else {
+        APP_ID
+    }
+}
+
+pub fn app_id() -> &'static str {
+    app_id_for(crate::portable::enabled())
+}
+
 const QUEUE: usize = 32;
 const MAX_NOTICE: usize = 2048;
 const DEDUPE: Duration = Duration::from_secs(600);
@@ -314,7 +329,7 @@ pub fn install(app: &tauri::AppHandle, diagnostics: Diagnostics, workspace: &Pat
         "{:x}",
         Sha256::digest(workspace.to_string_lossy().as_bytes())
     );
-    let group = format!("{APP_ID}:{}", &identity[..16]);
+    let group = format!("{}:{}", app_id(), &identity[..16]);
     with_preferences(
         platform_sink(app, workspace),
         diagnostics,
@@ -873,6 +888,12 @@ mod tests {
         assert_eq!(config["bundle"]["macOS"]["minimumSystemVersion"], "10.14");
     }
 
+    #[test]
+    fn portable_identity_is_separate_from_the_installed_app() {
+        assert_eq!(app_id_for(false), "org.wenyi.desktop");
+        assert_eq!(app_id_for(true), "org.wenyi.desktop.portable");
+    }
+
     fn failed_notice(run: &str) -> Notice {
         Notice::parse(&format!(
             concat!(
@@ -953,7 +974,8 @@ mod tests {
         let shown = shown.0.lock().unwrap();
         assert_eq!(shown.len(), 1);
         assert_eq!(shown[0].tag, "engine");
-        assert!(shown[0].body.contains("engine"));
+        // The body follows the host locale; this test owns delivery, not wording.
+        assert!(shown[0].body.contains("engine") || shown[0].body.contains("引擎"));
     }
 
     #[derive(Clone)]

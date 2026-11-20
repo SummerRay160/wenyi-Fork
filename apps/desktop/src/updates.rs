@@ -44,7 +44,7 @@ fn release_api_url() -> String {
 const BACKUP: &str = "backups";
 type Result<T> = std::result::Result<T, IpcError>;
 
-#[derive(Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 enum Mode {
     Automatic,
@@ -103,8 +103,22 @@ fn stable(version: &Version) -> bool {
     version.pre.is_empty() && version.build.is_empty()
 }
 
-fn mode(version: &str, key: &str, debug: bool, os: &str, arch: &str, appimage: bool) -> Mode {
-    if debug || key.trim().is_empty() || !Version::parse(version).is_ok_and(|v| stable(&v)) {
+fn mode(
+    version: &str,
+    key: &str,
+    debug: bool,
+    os: &str,
+    arch: &str,
+    appimage: bool,
+    portable: bool,
+) -> Mode {
+    if debug || !Version::parse(version).is_ok_and(|v| stable(&v)) {
+        return Mode::Unconfigured;
+    }
+    if portable {
+        return Mode::Manual;
+    }
+    if key.trim().is_empty() {
         return Mode::Unconfigured;
     }
     match (os, arch) {
@@ -126,6 +140,7 @@ impl Updates {
                     std::env::consts::OS,
                     std::env::consts::ARCH,
                     std::env::var_os("APPIMAGE").is_some_and(|p| !p.is_empty()),
+                    crate::portable::enabled(),
                 ),
                 phase: Phase::Idle,
                 version: None,
@@ -753,6 +768,12 @@ fn install(app: &tauri::AppHandle, update: Update, bytes: Arc<Vec<u8>>) -> Resul
 #[tauri::command]
 pub async fn desktop_update_install(window: tauri::WebviewWindow) -> Result<()> {
     trusted(&window)?;
+    if crate::portable::enabled() {
+        return Err(IpcError::new(
+            "update_unavailable",
+            "This portable build does not install updates in place. Download the new portable package.",
+        ));
+    }
     let (update, bytes) = {
         let updates = window.state::<Updates>();
         let mut state = lock(&updates.0);
@@ -952,15 +973,48 @@ mod tests {
             ("macos", "x86_64", false),
             ("linux", "x86_64", true),
         ] {
-            assert!(mode("1.2.3", "public", false, os, arch, appimage) == Mode::Automatic);
+            assert!(
+                mode("1.2.3", "public", false, os, arch, appimage, false) == Mode::Automatic
+            );
             for version in ["1.2.3-rc.1", "1.2.3+local", "invalid"] {
-                assert!(mode(version, "public", false, os, arch, appimage) == Mode::Unconfigured);
+                assert!(
+                    mode(version, "public", false, os, arch, appimage, false)
+                        == Mode::Unconfigured
+                );
             }
-            assert!(mode("1.2.3", "", false, os, arch, appimage) == Mode::Unconfigured);
-            assert!(mode("1.2.3", "public", true, os, arch, appimage) == Mode::Unconfigured);
+            assert!(
+                mode("1.2.3", "", false, os, arch, appimage, false) == Mode::Unconfigured
+            );
+            assert!(
+                mode("1.2.3", "public", true, os, arch, appimage, false) == Mode::Unconfigured
+            );
         }
-        assert!(mode("1.2.3", "public", false, "linux", "x86_64", false) == Mode::Manual);
-        assert!(mode("1.2.3", "public", false, "macos", "unsupported", false) == Mode::Manual);
+        assert!(
+            mode("1.2.3", "public", false, "linux", "x86_64", false, false) == Mode::Manual
+        );
+        assert!(
+            mode("1.2.3", "public", false, "macos", "unsupported", false, false) == Mode::Manual
+        );
+    }
+
+    #[test]
+    fn portable_stable_builds_use_manual_updates_without_a_signing_key() {
+        assert_eq!(
+            mode("1.2.3", "", false, "windows", "x86_64", false, true),
+            Mode::Manual
+        );
+        assert_eq!(
+            mode("1.2.3", "public", false, "windows", "x86_64", false, true),
+            Mode::Manual
+        );
+        assert_eq!(
+            mode("1.2.3-rc.1", "public", false, "windows", "x86_64", false, true),
+            Mode::Unconfigured
+        );
+        assert_eq!(
+            mode("1.2.3", "public", true, "windows", "x86_64", false, true),
+            Mode::Unconfigured
+        );
     }
 
     #[test]

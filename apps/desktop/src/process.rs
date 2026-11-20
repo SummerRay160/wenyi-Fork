@@ -195,6 +195,7 @@ impl Backend {
         if let Ok(install) = crate::paths::running_install_dir() {
             command.arg("--install-root").arg(install);
         }
+        command.args(crate::portable::engine_args(crate::portable::enabled()));
         command
             .arg("--native-startup")
             .env("WENYI_API_TOKEN", &token)

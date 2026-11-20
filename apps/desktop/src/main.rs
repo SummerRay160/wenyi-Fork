@@ -15,6 +15,7 @@ mod native_drop;
 mod native_export;
 mod notifications;
 mod paths;
+mod portable;
 mod process;
 mod profile;
 mod publish;
@@ -181,7 +182,7 @@ fn assert_layout(
     let running = paths::running_install_dir().map_err(|_| {
         "Wenyi could not determine which folder it is running from. Reinstall Wenyi into a folder of its own."
     })?;
-    let layout = paths::check_layout(&running, workspace);
+    let layout = paths::check_layout_for(&running, workspace, portable::enabled());
     if layout == paths::LayoutCheck::Consistent {
         return Ok(());
     }

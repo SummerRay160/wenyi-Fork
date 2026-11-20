@@ -13,9 +13,11 @@ use ::windows::UI::Notifications::{
 };
 use tauri::Manager;
 
-use super::{Failure, Presentation, Sink, APP_ID};
+use super::{Failure, Presentation, Sink};
 
-const AUMID: &str = APP_ID;
+fn aumid() -> &'static str {
+    super::app_id()
+}
 
 /// A 64 px logo for toast banners. Embedded so development and installed builds
 /// write the same asset next to their runtime state and reference it by URI.
@@ -28,7 +30,7 @@ const TOAST_ICON: &[u8] = include_bytes!("../../icons/toast.png");
 /// the per-user registration Windows needs to resolve the display name and icon
 /// for toasts from an unpackaged build.
 pub fn set_app_user_model_id() {
-    let value: Vec<u16> = AUMID.encode_utf16().chain(std::iter::once(0)).collect();
+    let value: Vec<u16> = aumid().encode_utf16().chain(std::iter::once(0)).collect();
     // SAFETY: the buffer is NUL-terminated and only read during this call.
     unsafe {
         windows_sys::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID(value.as_ptr());
@@ -83,7 +85,7 @@ fn open_identity_key() -> Option<windows_sys::Win32::System::Registry::HKEY> {
     use windows_sys::Win32::Foundation::ERROR_SUCCESS;
     use windows_sys::Win32::System::Registry::{RegCreateKeyW, HKEY, HKEY_CURRENT_USER};
 
-    let subkey = wide(&format!("Software\\Classes\\AppUserModelId\\{AUMID}"));
+    let subkey = wide(&format!("Software\\Classes\\AppUserModelId\\{}", aumid()));
     let mut key: HKEY = std::ptr::null_mut();
     // SAFETY: the subkey is NUL-terminated and outlives the call.
     let status = unsafe { RegCreateKeyW(HKEY_CURRENT_USER, subkey.as_ptr(), &mut key) };
@@ -182,7 +184,7 @@ impl WindowsSink {
     }
 
     fn notifier() -> ::windows::core::Result<ToastNotifier> {
-        ToastNotificationManager::CreateToastNotifierWithId(&HSTRING::from(AUMID))
+        ToastNotificationManager::CreateToastNotifierWithId(&HSTRING::from(aumid()))
     }
 }
 
