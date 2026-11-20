@@ -1,13 +1,13 @@
 name: Desktop portable
-run-name: Desktop portable · ${{ inputs.tag || github.event.release.tag_name || format('dev {0}', github.ref_name) }}
+run-name: Desktop portable · ${{ inputs.tag || github.event.release.tag_name }}
 
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Git tag to build (empty means development checkout)
+        description: Stable release tag to build (vX.Y.Z, e.g. v1.2.3)
         type: string
-        default: ""
+        required: true
       publish:
         description: Upload the portable ZIP to an existing stable release (requires tag)
         type: boolean
@@ -19,28 +19,43 @@ permissions:
   contents: read
 
 concurrency:
-  group: desktop-portable-${{ inputs.tag || github.event.release.tag_name || github.ref }}
+  group: desktop-portable-${{ inputs.tag || github.event.release.tag_name }}
   cancel-in-progress: false
 
 jobs:
-  # Fail before spending Windows runner minutes when a manual publish cannot target a release.
+  # A portable build is the portable variant of an upstream stable release:
+  # the tag is the single source of truth for the checkout and the version.
+  # Fail before spending Windows runner minutes when the tag is not stable or
+  # a manual publish cannot target an already published release.
   plan:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
     steps:
+      - name: Resolve and validate stable tag
+        id: resolve
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag || github.event.release.tag_name }}
+        run: |
+          set -eu
+          if [[ ! "$TAG" =~ ^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::A stable release tag (vX.Y.Z) is required; development builds are not published."
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
       - name: Validate published release rebuild
         if: github.event_name == 'workflow_dispatch' && inputs.publish
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          TAG: ${{ inputs.tag }}
+          TAG: ${{ steps.resolve.outputs.tag }}
         run: |
           set -eu
-          if [[ ! "$TAG" =~ ^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-            echo "::error::Publishing a rebuild requires an existing stable release tag."
-            exit 1
-          fi
           published="$(gh release view "$TAG" --json isDraft,isPrerelease \
             --jq '.isDraft == false and .isPrerelease == false')"
           if [[ "$published" != true ]]; then
@@ -57,7 +72,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          ref: ${{ inputs.tag || github.event.release.tag_name || github.ref }}
+          ref: ${{ needs.plan.outputs.tag }}
       - uses: astral-sh/setup-uv@v9.0.0
         with:
           python-version: "3.12"
@@ -67,8 +82,19 @@ jobs:
         id: version
         shell: bash
         env:
-          WENYI_BUILD_TAG: ${{ inputs.tag || github.event.release.tag_name }}
+          WENYI_BUILD_TAG: ${{ needs.plan.outputs.tag }}
         run: uv run --no-project --with hatch-vcs python scripts/release/release_version.py --github-output "$GITHUB_OUTPUT"
+      - name: Assert version matches the release tag
+        shell: bash
+        env:
+          EXPECTED_VERSION: ${{ needs.plan.outputs.version }}
+          ACTUAL_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -eu
+          if [[ "$ACTUAL_VERSION" != "$EXPECTED_VERSION" ]]; then
+            echo "::error::Resolved version $ACTUAL_VERSION does not equal tag version $EXPECTED_VERSION."
+            exit 1
+          fi
       - uses: pnpm/action-setup@v5
         with:
           version: 9
@@ -88,7 +114,7 @@ jobs:
       - name: Build the portable executable and engine
         run: pnpm desktop:build --no-bundle
         env:
-          WENYI_BUILD_TAG: ${{ inputs.tag || github.event.release.tag_name }}
+          WENYI_BUILD_TAG: ${{ needs.plan.outputs.tag }}
           WENYI_UPDATE_REPO: ${{ github.repository }}
       - name: Verify native Windows GUI subsystem
         run: uv run --no-project python scripts/dev/desktop_pe.py target/release/wenyi-desktop.exe
@@ -130,7 +156,7 @@ jobs:
           retention-days: 14
 
   publish:
-    name: Publish portable asset · ${{ inputs.tag || github.event.release.tag_name }}
+    name: Publish portable asset · ${{ needs.plan.outputs.tag }}
     if: >-
       github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.publish)
     needs: [plan, build]
@@ -151,7 +177,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          TAG: ${{ inputs.tag || github.event.release.tag_name }}
+          TAG: ${{ needs.plan.outputs.tag }}
         run: |
           gh release view "$TAG" --repo "$GH_REPO" >/dev/null
           gh release upload "$TAG" release-assets/* --repo "$GH_REPO"

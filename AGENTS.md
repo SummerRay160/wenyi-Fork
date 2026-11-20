@@ -151,9 +151,10 @@ git diff --check
 
 ## Fork 专属 Windows 携带版
 
-本 fork 在上游安装包之外发布 Windows x64 携带版。它只由
-`.github/workflows/desktop-portable.yml` 构建，不提供本地便携构建入口。上游同步时必须
-保留：
+本 fork 发布 Windows x64 携带版，作为上游正式版的便携变体。它只由
+`.github/workflows/desktop-portable.yml` 构建，不提供本地便携构建入口。构建必须使用与
+上游正式版相同的稳定 tag，版本号严格等于该 tag（去 `v`），不出现开发/本地后缀，
+也不从无 tag 的开发 checkout 构建。上游同步时必须保留：
 
 - `portable.marker` 识别与 `<exe>/data` 默认数据根；
 - `apps/desktop/src/paths.rs` 中唯一放行该路径的布局例外；

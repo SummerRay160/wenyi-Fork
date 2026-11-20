@@ -1,7 +1,8 @@
 # Windows 携带版
 
-本 fork 在上游安装包之外发布 **Windows x64 携带版**。这是 fork 的长期变体，上游同步时
-必须保留。安装版、NSIS 安装器、默认数据根和更新路径均不变。
+本 fork 发布 **Windows x64 携带版**，作为上游正式版的便携变体。它使用与上游正式版相同的
+稳定 Git tag 构建，版本号与 tag 一致，不带开发或本地后缀。上游同步时必须保留。安装版、
+NSIS 安装器、默认数据根和更新路径均不变。
 
 携带版只由
 [`.github/workflows/desktop-portable.yml`](../../../.github/workflows/desktop-portable.yml)
@@ -68,18 +69,24 @@ Wenyi-Desktop-<version>-windows-x64-portable/
 
 ## 构建与发布
 
-工作流由已发布的 GitHub Release 或手动触发，只在 `windows-latest` 构建：
+携带版构建始终从稳定发行 tag `vX.Y.Z` 开始。工作流由已发布的 GitHub Release 或带必填
+`tag` 输入的手动触发启动，两条路径都以该 tag 为唯一来源；不提供开发 checkout 构建。
+只在 `windows-latest` 构建：
 
-1. 解析 Git 版本，并把 `WENYI_UPDATE_REPO` 设为工作流所在仓库。
-2. 构建原生锁库、安装前端依赖，执行 `pnpm desktop:build --no-bundle`。
-3. 校验 GUI PE 子系统，然后运行 `scripts/release/package_portable.py`。
-4. 解压 ZIP，运行 `wenyi-desktop.exe --version`，要求标记和 sidecar 引擎存在；
+1. 按稳定版本模式校验 tag，并把 `version` 解析为去掉前导 `v` 的 tag。
+2. 检出该 tag、解析 Git 版本，并把 `WENYI_UPDATE_REPO` 设为工作流所在仓库。
+3. 断言解析出的版本等于 tag 版本，然后构建原生锁库、安装前端依赖，执行
+   `pnpm desktop:build --no-bundle`。
+4. 校验 GUI PE 子系统，然后运行 `scripts/release/package_portable.py`。
+5. 解压 ZIP，运行 `wenyi-desktop.exe --version`，要求标记和 sidecar 引擎存在；
    ZIP 内不得包含 `data/`。
-5. 手动运行上传 workflow artifact；发布时追加 ZIP 和
+6. 手动运行上传 workflow artifact；发布时追加 ZIP 和
    `wenyi-desktop-portable-SHA256SUMS.txt`。
 
-手动 `workflow_dispatch` 且 `publish=false` 只产出 artifact；`publish=true` 要求稳定
-tag 且 Release 已发布。工作流不调用 `desktop_updates.py`，也不生成更新清单。
+手动 `workflow_dispatch` 必须提供稳定 tag。`publish=false` 只产出 artifact；
+`publish=true` 还要求稳定 tag 对应的 Release 已发布。携带版版本号严格等于去掉 `v` 的
+tag — 不出现 `-dev.N` 或 `+local` 构建后缀。工作流不调用 `desktop_updates.py`，也不生成
+更新清单。
 
 打包脚本为 `scripts/release/package_portable.py`；打包进 ZIP 的双语 README 源文件为
 `scripts/release/portable-readme.md`。仓库忽略 `*.txt`，所以源文件保留 `.md` 名称，
@@ -97,7 +104,7 @@ ZIP 内条目仍是 `README.txt`。
 - 测试缺少 WebView2 的提示和未签名 SmartScreen 提醒。
 
 静态工作流契约位于 `packages/core/tests/test_release_packaging.py`。GitHub Actions
-语法和真实 Windows 构建只能通过手动运行工作流验证。
+语法和真实 Windows 构建只能通过携带稳定 tag 手动运行工作流验证。
 
 ## 上游同步保留清单
 

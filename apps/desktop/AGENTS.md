@@ -1,7 +1,7 @@
 # Wenyi Desktop agent guide
 
 Read the repository [AGENTS.md](../../AGENTS.md) first. This directory also carries the
-fork-only Windows x64 portable edition.
+Windows x64 portable edition, the portable variant of the upstream stable release.
 
 Before changing paths, updates, credentials, notifications, packaging, or the release
 workflow, read [Portable edition](../../docs/development/portable-edition.md). Preserve:
@@ -15,6 +15,7 @@ workflow, read [Portable edition](../../docs/development/portable-edition.md). P
 - `scripts/release/package_portable.py`, `.github/workflows/desktop-portable.yml`, and
   their tests.
 
-Build the portable edition only through `.github/workflows/desktop-portable.yml`; do not
-add a local portable build path. The installed edition's installer, data root and update
-path must remain unchanged.
+Build the portable edition only through `.github/workflows/desktop-portable.yml`, from a
+stable tag matching the upstream release: the version is exactly the tag without `v`, with
+no development or local suffix and no untagged checkout. Do not add a local portable build
+path. The installed edition's installer, data root and update path must remain unchanged.

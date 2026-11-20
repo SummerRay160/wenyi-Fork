@@ -25,7 +25,9 @@ After installation, set up [API keys](#api-keys), then follow the shared [worksp
 
 ## Windows portable edition
 
-This fork also publishes a Windows x64 portable ZIP. It is not an installer: extract
+This fork also publishes a Windows x64 portable ZIP as the portable variant of the
+upstream stable release, built from the same stable tag and carrying the same version
+without a development suffix. It is not an installer: extract
 `wenyi-desktop-<version>-windows-x64-portable.zip` to a writable folder on a local
 disk and open `wenyi-desktop.exe`. Keep `wenyi-desktop.exe`, `portable.marker` and the
 `sidecar/` folder together. Windows may show a SmartScreen warning for this unsigned

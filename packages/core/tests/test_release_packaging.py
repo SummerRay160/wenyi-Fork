@@ -826,6 +826,48 @@ def test_desktop_portable_workflow_is_ci_only_and_never_updates_latest_json():
     assert "latest.json" not in text
 
 
+def test_desktop_portable_workflow_requires_a_stable_tag():
+    import yaml
+
+    text = (ROOT / ".github/workflows/desktop-portable.yml").read_text(encoding="utf-8")
+    document = yaml.load(text, Loader=yaml.BaseLoader)
+    dispatch = document["on"]["workflow_dispatch"]
+    tag = dispatch["inputs"]["tag"]
+    assert tag["required"] == "true"
+    assert "development checkout" not in tag["description"]
+
+    # No development-checkout fallbacks: the tag is the single source of truth.
+    assert "format('dev" not in text
+    assert "|| github.ref" not in text
+
+    plan = document["jobs"]["plan"]
+    assert plan["outputs"] == {
+        "tag": "${{ steps.resolve.outputs.tag }}",
+        "version": "${{ steps.resolve.outputs.version }}",
+    }
+    resolve = next(step for step in plan["steps"] if step.get("id") == "resolve")
+    assert "v?(0|[1-9][0-9]*)" in resolve["run"]
+    assert 'echo "version=${TAG#v}"' in resolve["run"]
+
+    build = document["jobs"]["build"]
+    checkout = next(step for step in build["steps"] if "actions/checkout@" in step.get("uses", ""))
+    assert checkout["with"]["ref"] == "${{ needs.plan.outputs.tag }}"
+    assert text.count("WENYI_BUILD_TAG: ${{ needs.plan.outputs.tag }}") == 2
+    assert "WENYI_BUILD_TAG: ${{ inputs.tag || github.event.release.tag_name }}" not in text
+    assert_identity = next(
+        step
+        for step in build["steps"]
+        if step.get("name") == "Assert version matches the release tag"
+    )
+    assert assert_identity["env"]["EXPECTED_VERSION"] == "${{ needs.plan.outputs.version }}"
+    assert assert_identity["env"]["ACTUAL_VERSION"] == "${{ steps.version.outputs.version }}"
+
+    publish = document["jobs"]["publish"]
+    assert publish["name"] == "Publish portable asset · ${{ needs.plan.outputs.tag }}"
+    upload = next(step for step in publish["steps"] if "gh release upload" in step.get("run", ""))
+    assert upload["env"]["TAG"] == "${{ needs.plan.outputs.tag }}"
+
+
 def test_portable_check_workflow_builds_windows_only_and_never_publishes():
     import yaml
 

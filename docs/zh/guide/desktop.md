@@ -25,7 +25,8 @@ Windows 安装器应以普通用户运行，不要选择**以管理员身份运�
 
 ## Windows 携带版
 
-本 fork 另外发布 Windows x64 携带版 ZIP。它不是安装器：把
+本 fork 另外发布 Windows x64 携带版 ZIP，作为上游正式版的便携变体：它使用与上游相同的
+稳定 tag 构建，版本号与 tag 一致且不带开发后缀。它不是安装器：把
 `wenyi-desktop-<version>-windows-x64-portable.zip` 解压到本地磁盘上可写的文件夹，
 运行 `wenyi-desktop.exe`。请保持 `wenyi-desktop.exe`、`portable.marker` 和 `sidecar/`
 文件夹在一起。未签名构建可能触发 SmartScreen 提醒，继续前请确认下载来源可信。

@@ -1,9 +1,10 @@
 # Windows portable edition
 
-This fork publishes a **Windows x64 portable edition** in addition to the upstream
-installers. It is a long-lived fork variant: upstream synchronization must preserve it.
-The installed edition, its NSIS installer, its default data root and its update path are
-unchanged.
+This fork publishes a **Windows x64 portable edition** as the portable variant of the
+upstream stable release. It is built from the same stable Git tag as that release, so its
+version matches the tag without a development or local suffix. Upstream synchronization
+must preserve it. The installed edition, its NSIS installer, its default data root and its
+update path are unchanged.
 
 The portable edition is built only by
 [`.github/workflows/desktop-portable.yml`](../../.github/workflows/desktop-portable.yml).
@@ -80,21 +81,27 @@ passphrase, and the last successful wrapper write replaces the previous one.
 
 ## Build and release
 
-The workflow triggers on a published GitHub Release and on manual dispatch. It builds
-only on `windows-latest`:
+A portable build always starts from a stable release tag: `vX.Y.Z`. The workflow triggers
+on a published GitHub Release and on manual dispatch with a required `tag` input; both
+paths use that tag as the single source of truth. There is no development-checkout build.
+It builds only on `windows-latest`:
 
-1. Resolve the Git version and set `WENYI_UPDATE_REPO` to the workflow's own repository.
-2. Build the native lock library, install the frontend dependencies and run
-   `pnpm desktop:build --no-bundle`.
-3. Verify the GUI PE subsystem, then run `scripts/release/package_portable.py`.
-4. Extract the ZIP, run `wenyi-desktop.exe --version`, and require the marker and sidecar
+1. Validate the tag against the stable-version pattern and resolve `version` as the tag
+   without its leading `v`.
+2. Check out that tag, resolve the Git version, and set `WENYI_UPDATE_REPO` to the
+   workflow's own repository.
+3. Assert the resolved version equals the tag version, then build the native lock library,
+   install the frontend dependencies and run `pnpm desktop:build --no-bundle`.
+4. Verify the GUI PE subsystem, then run `scripts/release/package_portable.py`.
+5. Extract the ZIP, run `wenyi-desktop.exe --version`, and require the marker and sidecar
    engine. The archive must not contain `data/`.
-5. Upload a workflow artifact for manual runs, or append the ZIP and
+6. Upload a workflow artifact for manual runs, or append the ZIP and
    `wenyi-desktop-portable-SHA256SUMS.txt` to the Release when publishing.
 
-Manual `workflow_dispatch` with `publish=false` produces an artifact only. `publish=true`
-requires a stable tag and an already published stable release. The workflow never calls
-`desktop_updates.py` and never creates an updater manifest.
+Manual `workflow_dispatch` requires a stable tag. With `publish=false` it produces an
+artifact only; `publish=true` additionally requires an already published stable release.
+The portable version is exactly the tag without `v` — never a `-dev.N` or `+local` build
+suffix. The workflow never calls `desktop_updates.py` and never creates an updater manifest.
 
 The package script is `scripts/release/package_portable.py`; the packaged bilingual
 README source is `scripts/release/portable-readme.md`. The repository ignores `*.txt`, so
@@ -114,7 +121,7 @@ Validate a downloaded artifact, not a local portable build:
 
 The static workflow contract lives in `packages/core/tests/test_release_packaging.py`.
 GitHub Actions syntax and the actual Windows build can only be validated by dispatching
-the workflow.
+the workflow with a stable tag.
 
 ## Upstream synchronization checklist
 
