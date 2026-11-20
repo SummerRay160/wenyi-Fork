@@ -8,6 +8,8 @@ import {
   readMineruCredential,
   saveMineruCredential,
 } from "./mineruCredentials";
+import { PortableVaultDialog } from "./PortableCredentials";
+import { portableVaultQuery } from "./portableVault";
 import { updateCredentialSafety } from "./updateSafety";
 
 // Wait for a pause in typing before writing, so each keystroke is not a vault write.
@@ -21,6 +23,7 @@ const AUTOSAVE_DELAY_MS = 800;
 export function MinerUCredential() {
   const { t } = useDesktopI18n();
   const query = useQuery(mineruCredentialQuery);
+  const portable = useQuery(portableVaultQuery);
   const queryClient = useQueryClient();
   const status = query.data;
   const environmentSelected = status?.mode === "environment";
@@ -31,6 +34,7 @@ export function MinerUCredential() {
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [vaultOpen, setVaultOpen] = useState(false);
   const [safetyId] = useState(() => Symbol("mineru"));
   // A failed value is not retried until the user edits it again.
   const attempted = useRef<string | null>(null);
@@ -126,6 +130,27 @@ export function MinerUCredential() {
       {!environmentSelected && status?.available && status.storage === "session" && (
         <p className="text-xs text-muted-foreground">{t("mineru.sessionWarning")}</p>
       )}
+      {portable.data?.supported && !portable.data.unlocked && status?.mode === "manual" && (
+        <p className="text-xs text-muted-foreground">
+          {t("credentials.portableSessionHelp")}{" "}
+          <button
+            type="button"
+            className="underline underline-offset-2"
+            onClick={() => setVaultOpen(true)}
+          >
+            {t(portable.data.present ? "portable.unlock" : "portable.setUp")}
+          </button>
+        </p>
+      )}
+      <PortableVaultDialog
+        open={vaultOpen}
+        mode={portable.data?.present ? "unlock" : "create"}
+        onClose={() => setVaultOpen(false)}
+        onChanged={() => {
+          void portable.refetch();
+          void query.refetch();
+        }}
+      />
     </fieldset>
   );
 }

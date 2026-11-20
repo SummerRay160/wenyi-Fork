@@ -9,6 +9,8 @@ import {
   type CredentialStatus,
 } from "./credentials";
 import { useDesktopI18n } from "./i18n";
+import { PortableVaultDialog } from "./PortableCredentials";
+import { portableVaultQuery } from "./portableVault";
 import type { CredentialFieldProps } from "@wenyi/ui/platform";
 import { ErrorNotice, Button, Label, PasswordInput } from "@wenyi/ui/primitives";
 import { SettingsGroup } from "@wenyi/ui/settings";
@@ -21,10 +23,12 @@ export function DesktopCredential({ connection, children }: CredentialFieldProps
   const { t } = useDesktopI18n();
   const credentials = useQuery(credentialQuery);
   const status = credentials.data?.[connection];
+  const portable = useQuery(portableVaultQuery);
   const queryClient = useQueryClient();
   const entry = useCredentialEntry(connection);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(false);
+  const [vaultOpen, setVaultOpen] = useState(false);
   const manual = status?.mode === "manual" && status.available;
   // Load the stored key once per connection so the field shows it masked.
   useEffect(() => {
@@ -73,7 +77,28 @@ export function DesktopCredential({ connection, children }: CredentialFieldProps
       {manual && status.storage === "session" && (
         <p className="text-xs text-muted-foreground">{t("credentials.sessionHelp")}</p>
       )}
+      {portable.data?.supported && !portable.data.unlocked && status?.mode === "manual" && (
+        <p className="text-xs text-muted-foreground">
+          {t("credentials.portableSessionHelp")}{" "}
+          <button
+            type="button"
+            className="underline underline-offset-2"
+            onClick={() => setVaultOpen(true)}
+          >
+            {t(portable.data.present ? "portable.unlock" : "portable.setUp")}
+          </button>
+        </p>
+      )}
       {error && <p role="alert" className="text-sm text-destructive">{t("credentials.failed")}</p>}
+      <PortableVaultDialog
+        open={vaultOpen}
+        mode={portable.data?.present ? "unlock" : "create"}
+        onClose={() => setVaultOpen(false)}
+        onChanged={() => {
+          void portable.refetch();
+          void credentials.refetch();
+        }}
+      />
       <SettingsGroup title={t("credentials.advanced")}>
         <fieldset className="space-y-3" disabled={pending}>
           {children}
