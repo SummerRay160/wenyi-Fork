@@ -740,3 +740,112 @@ def test_pypi_pending_publishers_have_distinct_package_identities():
         assert len(uploads) == 1
         assert uploads[0].count("uv publish") == 1
         assert f"dist/pypi/{package}-*" in uploads[0]
+
+
+def test_portable_archive_contains_runtime_marker_and_sidecar(tmp_path):
+    binary = tmp_path / "wenyi-desktop.exe"
+    binary.write_bytes(b"exe")
+    sidecar = tmp_path / "wenyi-engine"
+    sidecar.mkdir()
+    (sidecar / "wenyi-engine.exe").write_bytes(b"engine")
+    readme = tmp_path / "README.txt"
+    readme.write_text("Portable")
+    license_path = tmp_path / "LICENSE"
+    license_path.write_text("GPL")
+    output = tmp_path / "out"
+    output.mkdir()
+    archive = script("package_portable").package(
+        binary, sidecar, output, "1.2.3", readme=readme, license_path=license_path
+    )
+    root = "Wenyi-Desktop-1.2.3-windows-x64-portable"
+    assert archive.name == "wenyi-desktop-1.2.3-windows-x64-portable.zip"
+    with zipfile.ZipFile(archive) as opened:
+        names = set(opened.namelist())
+    assert f"{root}/wenyi-desktop.exe" in names
+    assert f"{root}/portable.marker" in names
+    assert f"{root}/sidecar/wenyi-engine/wenyi-engine.exe" in names
+    assert f"{root}/README.txt" in names
+    assert f"{root}/LICENSE" in names
+    assert not any("setup.exe" in name for name in names)
+
+
+def test_portable_archive_requires_the_engine(tmp_path):
+    binary = tmp_path / "wenyi-desktop.exe"
+    binary.write_bytes(b"exe")
+    sidecar = tmp_path / "wenyi-engine"
+    sidecar.mkdir()
+    readme = tmp_path / "README.txt"
+    readme.write_text("Portable")
+    license_path = tmp_path / "LICENSE"
+    license_path.write_text("GPL")
+    with pytest.raises(ValueError, match="wenyi-engine"):
+        script("package_portable").package(
+            binary,
+            sidecar,
+            tmp_path / "out",
+            "1.2.3",
+            readme=readme,
+            license_path=license_path,
+        )
+
+
+def test_portable_archive_refuses_to_overwrite(tmp_path):
+    binary = tmp_path / "wenyi-desktop.exe"
+    binary.write_bytes(b"exe")
+    sidecar = tmp_path / "wenyi-engine"
+    sidecar.mkdir()
+    (sidecar / "wenyi-engine.exe").write_bytes(b"engine")
+    readme = tmp_path / "README.txt"
+    readme.write_text("Portable")
+    license_path = tmp_path / "LICENSE"
+    license_path.write_text("GPL")
+    output = tmp_path / "out"
+    output.mkdir()
+    target = output / "wenyi-desktop-1.2.3-windows-x64-portable.zip"
+    target.write_bytes(b"old")
+    with pytest.raises(ValueError, match="overwrite"):
+        script("package_portable").package(
+            binary,
+            sidecar,
+            output,
+            "1.2.3",
+            readme=readme,
+            license_path=license_path,
+        )
+
+
+def test_desktop_portable_workflow_is_ci_only_and_never_updates_latest_json():
+    text = (ROOT / ".github/workflows/desktop-portable.yml").read_text(encoding="utf-8")
+    assert "workflow_dispatch:" in text
+    assert "types: [published]" in text
+    assert "runs-on: windows-latest" in text
+    assert "package_portable.py" in text
+    assert "WENYI_UPDATE_REPO: ${{ github.repository }}" in text
+    assert "wenyi-desktop-portable-SHA256SUMS.txt" in text
+    assert "desktop_updates.py" not in text
+    assert "latest.json" not in text
+
+
+def test_portable_check_workflow_builds_windows_only_and_never_publishes():
+    import yaml
+
+    document = yaml.load(
+        (ROOT / ".github/workflows/portable-check.yml").read_text(encoding="utf-8"),
+        Loader=yaml.BaseLoader,
+    )
+    events = document["on"]
+    assert set(events) == {"push", "pull_request", "workflow_dispatch"}
+    assert events["push"]["branches-ignore"] == ["main"]
+    assert events["pull_request"]["branches"] == ["main"]
+    jobs = document["jobs"]
+    assert set(jobs) == {"build"}
+    assert jobs["build"]["runs-on"] == "windows-latest"
+    text = (ROOT / ".github/workflows/portable-check.yml").read_text(encoding="utf-8")
+    assert "package_portable.py" in text
+    assert "WENYI_UPDATE_REPO: ${{ github.repository }}" in text
+    # A development check must never publish: no release assets, no update feed.
+    assert "desktop_updates.py" not in text
+    assert "latest.json" not in text
+    assert "SHA256SUMS" not in text
+    assert "gh release upload" not in text
+    assert "contents: write" not in text
