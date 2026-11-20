@@ -1,0 +1,127 @@
+name: Portable packaging check
+run-name: Portable check · dev ${{ github.ref_name }}
+
+# CI verification for the fork's Windows portable packaging. Unlike
+# desktop-portable.yml (dispatch/release only, publishes assets), this
+# workflow builds a development checkout on every portable-relevant push or
+# PR and never publishes anything.
+on:
+  push:
+    branches-ignore: [main]
+    paths:
+      - .github/workflows/portable-check.yml
+      - apps/desktop/**
+      - native/wenyi-locks/**
+      - packages/core/**
+      - packages/backend/**
+      - packages/shared-schema/**
+      - packages/ui/**
+      - scripts/dev/**
+      - scripts/release/**
+      - uv.lock
+      - pnpm-lock.yaml
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/portable-check.yml
+      - apps/desktop/**
+      - native/wenyi-locks/**
+      - packages/core/**
+      - packages/backend/**
+      - packages/shared-schema/**
+      - packages/ui/**
+      - scripts/dev/**
+      - scripts/release/**
+      - uv.lock
+      - pnpm-lock.yaml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portable-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Portable check · windows-x64
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v9.0.0
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+      - name: Resolve Git version
+        id: version
+        shell: bash
+        run: uv run --no-project --with hatch-vcs python scripts/release/release_version.py --github-output "$GITHUB_OUTPUT"
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 9
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop -> target
+          add-job-id-key: false
+          add-rust-environment-hash-key: false
+      - name: Build the native lock library
+        run: cargo build --release --manifest-path native/wenyi-locks/Cargo.toml
+      - run: pnpm install --frozen-lockfile
+      - name: Build the portable executable and engine
+        run: pnpm desktop:build --no-bundle
+        env:
+          WENYI_UPDATE_REPO: ${{ github.repository }}
+      - name: Verify native Windows GUI subsystem
+        run: uv run --no-project python scripts/dev/desktop_pe.py target/release/wenyi-desktop.exe
+      - name: Package portable edition
+        run: >
+          uv run --no-project python scripts/release/package_portable.py
+          --version "${{ steps.version.outputs.version }}"
+          --binary target/release/wenyi-desktop.exe
+          --sidecar apps/desktop/sidecar/wenyi-engine
+          --output release-assets
+      - name: Verify portable archive
+        shell: pwsh
+        env:
+          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $archive = Get-ChildItem release-assets/*-portable.zip | Select-Object -First 1
+          Expand-Archive -LiteralPath $archive.FullName -DestinationPath portable-check
+          $exe = Get-ChildItem portable-check -Recurse -Filter wenyi-desktop.exe | Select-Object -First 1
+          $root = $exe.Directory.FullName
+          # The release build is a GUI-subsystem binary, so PowerShell cannot
+          # capture its stdout. Verify the archive identity from its names:
+          # the folder and ZIP carry the resolved build version.
+          $expected = "Wenyi-Desktop-$env:EXPECTED_VERSION-windows-x64-portable"
+          if ($archive.BaseName -ne "wenyi-desktop-$env:EXPECTED_VERSION-windows-x64-portable") {
+            throw "Unexpected archive name: $($archive.Name)"
+          }
+          if ($root -notlike "*$expected") {
+            throw "Unexpected archive root folder: $root"
+          }
+          if (!(Test-Path (Join-Path $root "portable.marker"))) {
+            throw "Missing portable.marker"
+          }
+          if (!(Test-Path (Join-Path $root "sidecar/wenyi-engine/wenyi-engine.exe"))) {
+            throw "Missing sidecar engine"
+          }
+          if (Test-Path (Join-Path $root "data")) {
+            throw "The portable archive contains data/"
+          }
+      - uses: actions/upload-artifact@v6
+        with:
+          name: wenyi-desktop-${{ steps.version.outputs.version }}-windows-x64-portable-check
+          path: release-assets/*-portable.zip
+          if-no-files-found: error
+          retention-days: 7
