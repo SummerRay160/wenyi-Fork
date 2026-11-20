@@ -74,6 +74,7 @@ def test_desktop_schema_is_generated_offline_and_deterministically():
     assert first == _run_desktop_script()
     schema = json.loads(first)
     assert "/desktop/credentials" in schema["paths"]
+    assert "/desktop/portable-credentials" in schema["paths"]
     assert "/desktop/projects/{pid}/exports/{export_id}/content" in schema["paths"]
     assert {"CredentialStatus", "MinerUCredentialStatus"} <= set(schema["components"]["schemas"])
 
