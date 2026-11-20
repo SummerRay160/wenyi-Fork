@@ -21,6 +21,7 @@ import urllib.request
 from importlib.metadata import version
 from importlib.util import find_spec
 from pathlib import Path
+from typing import IO
 
 ROOT = Path(__file__).resolve().parents[2]
 DESTINATION = ROOT / "apps/desktop/sidecar"
@@ -93,6 +94,17 @@ def smoke_test(executable: Path) -> None:
 def smoke_launch(
     executable: Path, workspace: Path, env: dict[str, str], *, failed_stage: str | None = None
 ) -> None:
+    with tempfile.TemporaryFile(mode="w+", encoding="utf-8", errors="replace") as errors:
+        smoke_launch_checked(executable, workspace, env, failed_stage, errors)
+
+
+def smoke_launch_checked(
+    executable: Path,
+    workspace: Path,
+    env: dict[str, str],
+    failed_stage: str | None,
+    errors: IO[str],
+) -> None:
     token = env["WENYI_API_TOKEN"]
     with subprocess.Popen(
         [str(executable), "--data-dir", str(workspace)],
@@ -100,8 +112,9 @@ def smoke_launch(
         env=env,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
-        # Match the native parent: diagnosis must work with stderr discarded.
-        stderr=subprocess.DEVNULL,
+        # The frozen engine writes no secrets to stderr; keeping it lets a
+        # failed smoke test report the actual crash instead of a bare assert.
+        stderr=errors,
         creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
         text=True,
     ) as child:
@@ -166,7 +179,14 @@ def smoke_launch(
         except BaseException:
             child.kill()
             child.wait()
-            # Do not echo arbitrary process output or its environment.
+            # Do not echo arbitrary process output or its environment. A frozen
+            # interpreter crash (traceback) is the one thing worth surfacing.
+            errors.seek(0)
+            crash = [row.rstrip() for row in errors if row.strip()]
+            if crash:
+                print("Sidecar stderr tail:", file=sys.stderr)
+                for row in crash[-12:]:
+                    print(f"  {row[:200]}", file=sys.stderr)
             raise
 
 
